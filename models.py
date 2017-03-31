@@ -13,7 +13,7 @@ class EquityHistorical(Base):
     close = Column(Float, nullable=False)
     volume = Column(Integer, nullable=False)
     ex_dividend = Column(Float, nullable=False)
-    split_ratio = Column(Float=False)
+    split_ratio = Column(Float, nullable=False)
     adj_open = Column(Float, nullable=False)
     adj_high = Column(Float, nullable=False)
     adj_low = Column(Float, nullable=False)
