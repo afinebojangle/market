@@ -19,5 +19,17 @@ class EquityHistorical(Base):
     adj_low = Column(Float, nullable=False)
     adj_close = Column(Float, nullable=False)
     adj_volume = Column(Integer, nullable=False)
+    
+    
+class NasdaqGlobalEquityIndex(Base):
+    __tablename__ = 'nasdaq_global_equity_index'
+    date = Column(Date, primary_key=True)
+    value = Column(Float, nullable=False)
+    high = Column(Float, nullable=False)
+    low = Column(Float, nullable=False)
+    market_value = Column(Float, nullable=False)
+    dividend_market_value = Column(Float, nullable=False)
+    
+    
 
 Base.metadata.create_all(engine)
