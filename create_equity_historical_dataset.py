@@ -19,10 +19,11 @@ for value in session.query(EquityHistorical.date).distinct():
 
 date_range = []
 
-for n in range((date.today() - date(2015, 3, 29)).days):
-        date_range.append(date(2015, 3, 29) + timedelta(n))
+for n in range((date.today() - date(2014, 1, 1)).days):
+        date_range.append(date(2014, 1, 1) + timedelta(n))
 
 call_count = 0
+
 
 while call_count < 2:
     for day in date_range:
@@ -34,6 +35,7 @@ while call_count < 2:
         else:
             data = quandl.get_table('WIKI/PRICES', date=day.strftime('%Y%m%d'))
             data.rename(columns={'ex-dividend': 'ex_dividend'}, inplace=True)
+            data.dropna(inplace=True)
             data.to_sql('equity_historical', engine, if_exists='append', index=False, chunksize=5000)
             scrapped_dates.append(day)
             call_count += 1
