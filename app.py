@@ -2,7 +2,7 @@ from flask import Flask, render_template, request
 from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://rayford:rhtpas0!@localhost:5432/market_data'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://bojangles:apppas0!@marketdata.chew6qxftqgr.us-east-1.rds.amazonaws.com:5432/marketdata'
 db = SQLAlchemy(app)
 
 

@@ -31,5 +31,13 @@ class NasdaqGlobalEquityIndex(Base):
     dividend_market_value = Column(Float, nullable=False)
     
     
+class EquityReturns(Base):
+    __tablename__ = 'equity_returns'
+    date = Column(Date, primary_key=True)
+    ticker = Column(String(10), primary_key=True)
+    nominal_return = Column(Float, nullable=False)
+    percent_return = Column(Float, nullable=False)
+    
+    
 
-Base.metadata.create_all(engine)
+#Base.metadata.create_all(engine)
