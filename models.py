@@ -37,7 +37,17 @@ class EquityReturns(Base):
     ticker = Column(String(10), primary_key=True)
     nominal_return = Column(Float, nullable=False)
     percent_return = Column(Float, nullable=False)
+
+class NasdaqGlobalEquityReturns(Base):
+    __tablename__ = 'nasdaq_global_equity_returns'
+    date = Column(Date, primary_key=True)
+    nominal_return = Column(Float, nullable=False)
+    percent_return = Column(Float, nullable=False)
     
-    
+class CapmCoefficients(Base):
+    __tablename__ = 'capm_coefficients'
+    ticker = Column(String(10), primary_key=True)
+    alpha = Column(Float, nullable=False)
+    beta = Column(Float, nullable=False)
 
 #Base.metadata.create_all(engine)
