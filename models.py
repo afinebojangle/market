@@ -1,9 +1,10 @@
 from sqlalchemy import Column, Integer, String, Float, Date
 from sqlalchemy.ext.declarative import declarative_base
+from flask_sqlalchemy import SQLAlchemy
+from app import db
 
-Base = declarative_base()
 
-class EquityHistorical(Base):
+class EquityHistorical(db.Model):
     __tablename__ = 'equity_historical'
     ticker = Column(String(10), primary_key=True)
     date = Column(Date, primary_key=True)
@@ -21,7 +22,7 @@ class EquityHistorical(Base):
     adj_volume = Column(Integer, nullable=False)
     
     
-class NasdaqGlobalEquityIndex(Base):
+class NasdaqGlobalEquityIndex(db.Model):
     __tablename__ = 'nasdaq_global_equity_index'
     date = Column(Date, primary_key=True)
     value = Column(Float, nullable=False)
@@ -31,23 +32,22 @@ class NasdaqGlobalEquityIndex(Base):
     dividend_market_value = Column(Float, nullable=False)
     
     
-class EquityReturns(Base):
+class EquityReturns(db.Model):
     __tablename__ = 'equity_returns'
     date = Column(Date, primary_key=True)
     ticker = Column(String(10), primary_key=True)
     nominal_return = Column(Float, nullable=False)
     percent_return = Column(Float, nullable=False)
 
-class NasdaqGlobalEquityReturns(Base):
+class NasdaqGlobalEquityReturns(db.Model):
     __tablename__ = 'nasdaq_global_equity_returns'
     date = Column(Date, primary_key=True)
     nominal_return = Column(Float, nullable=False)
     percent_return = Column(Float, nullable=False)
     
-class CapmCoefficients(Base):
+class CapmCoefficients(db.Model):
     __tablename__ = 'capm_coefficients'
     ticker = Column(String(10), primary_key=True)
     alpha = Column(Float, nullable=False)
     beta = Column(Float, nullable=False)
 
-#Base.metadata.create_all(engine)
