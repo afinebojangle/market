@@ -50,4 +50,10 @@ class CapmCoefficients(db.Model):
     ticker = Column(String(10), primary_key=True)
     alpha = Column(Float, nullable=False)
     beta = Column(Float, nullable=False)
+    
+class EquityErrors(db.Model):
+    __tablename__ = 'equity_errors'
+    ticker = Column(String(10), primary_key=True)
+    date = Column(Date, primary_key=True)
+    error = Column(Float, nullable=False)
 

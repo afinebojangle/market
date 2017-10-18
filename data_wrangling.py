@@ -1,7 +1,7 @@
 from sqlalchemy import func
 import quandl
 from datetime import timedelta, date
-from models import EquityHistorical, EquityReturns, NasdaqGlobalEquityIndex, NasdaqGlobalEquityReturns, CapmCoefficients
+from models import EquityHistorical, EquityReturns, NasdaqGlobalEquityIndex, NasdaqGlobalEquityReturns, CapmCoefficients, EquityErrors
 import pandas as pd
 from sklearn import linear_model
 from app import db
@@ -9,18 +9,30 @@ from app import db
 
 class DataWrangling():
     
-    data_begin_date = date(2013, 12, 31)
-    training_data_boundry = date(2016, 12, 31)
+    data_begin_date = date(2012, 12, 31)
+    training_metric_boundry = date(2015, 12, 31)
+    training_data_begin = date(2016, 1, 1)
+    training_data_end = date(2016, 12, 31)
     
     @staticmethod
     def calculate_equity_returns():
         
+        #db.session.query(EquityReturns).delete()
+        #db.session.commit()
+        
         tickers = []
+        completed_tickers = []
+        tickers_to_do = []
         
         for result in db.session.query(EquityHistorical.ticker).distinct().all():
             tickers.append(result.ticker)
             
-        for current_ticker in tickers:
+        for result in db.session.query(EquityReturns.ticker).distinct().all():
+            completed_tickers.append(result.ticker)
+            
+        tickers_to_do = set(tickers) - set(completed_tickers)
+            
+        for current_ticker in tickers_to_do:
             date_boundry = [DataWrangling.data_begin_date]
             for result in db.session.query(func.max(EquityReturns.date).label("date")).filter(EquityReturns.ticker == current_ticker).all():
                 date_boundry.append(result.date)
@@ -39,6 +51,8 @@ class DataWrangling():
             
     @staticmethod
     def calculate_nasdaq_global_equity_returns():
+        db.session.query(NasdaqGlobalEquityReturns).delete()
+        db.session.commit()
         
         date_boundry = [DataWrangling.data_begin_date]
         
@@ -103,12 +117,15 @@ class DataWrangling():
         
         
     @staticmethod
-    def calculate_capm_coefficents():
+    def calculate_training_capm_coefficents():
+        db.session.query(CapmCoefficients).delete()
+        db.session.commit()
+        
         all_tickers = []
         completed_tickers = []
         coefficients = []
         
-        for result in db.session.query(EquityHistorical.ticker).filter(EquityHistorical.date <= DataWrangling.training_data_boundry).distinct().all():
+        for result in db.session.query(EquityHistorical.ticker).filter(EquityHistorical.date <= DataWrangling.training_metric_boundry).distinct().all():
             all_tickers.append(result.ticker)
             
         for result in db.session.query(CapmCoefficients.ticker).distinct().all():
@@ -117,7 +134,7 @@ class DataWrangling():
         tickers_to_do = list(set(all_tickers) - set(completed_tickers))
         
         for current_ticker in tickers_to_do:
-            query = db.session.query(EquityReturns.date.label("date"), EquityReturns.percent_return.label("stock"), NasdaqGlobalEquityReturns.percent_return.label("index")).join(NasdaqGlobalEquityReturns, EquityReturns.date == NasdaqGlobalEquityReturns.date).filter((EquityReturns.ticker == current_ticker) & (EquityReturns.date <= DataWrangling.training_data_boundry)).statement
+            query = db.session.query(EquityReturns.date.label("date"), EquityReturns.percent_return.label("stock"), NasdaqGlobalEquityReturns.percent_return.label("index")).join(NasdaqGlobalEquityReturns, EquityReturns.date == NasdaqGlobalEquityReturns.date).filter((EquityReturns.ticker == current_ticker) & (EquityReturns.date <= DataWrangling.training_metric_boundry)).statement
             data = pd.read_sql(query, db.engine, index_col="date")
             lm = linear_model.LinearRegression()
             x = data['index'].values.reshape(-1, 1)
@@ -127,6 +144,37 @@ class DataWrangling():
         
         db.session.bulk_save_objects(coefficients)
         db.session.commit()
+        
+    
+    @staticmethod
+    def calculate_training_errors():
+        db.session.query(EquityErrors).delete()
+        db.session.commit()
+        container = pd.DataFrame()
+        
+        all_tickers = []
+        
+        for result in db.session.query(EquityHistorical.ticker).filter(EquityHistorical.date.between(DataWrangling.training_data_begin, DataWrangling.training_data_end)).distinct().all():
+            all_tickers.append(result.ticker)
+            
+        for ticker in all_tickers:
+            
+            capm_params = db.session.query(CapmCoefficients).filter(CapmCoefficients.ticker == ticker).first()
+            
+            query = db.session.query(EquityReturns.date.label("date"), EquityReturns.percent_return.label("stock"), NasdaqGlobalEquityReturns.percent_return.label("index")).join(NasdaqGlobalEquityReturns, EquityReturns.date == NasdaqGlobalEquityReturns.date).filter((EquityReturns.ticker == ticker) & (EquityReturns.date <= DataWrangling.training_data_end) & (EquityReturns.date >= DataWrangling.training_data_begin)).statement
+        
+            data = pd.read_sql(query, db.engine, index_col="date")
+            
+            data['error'] = data['stock'] - data['index']*capm_params.beta - capm_params.alpha
+            data['ticker'] = ticker
+            data.drop(['stock', 'index'], inplace=True, axis=1)
+            data.dropna(inplace=True)
+            
+            container = container.append(data)
+            
+            
+        container.to_sql('equity_errors', db.engine, if_exists='append', index=True, chunksize=5000)
+            
             
             
             
