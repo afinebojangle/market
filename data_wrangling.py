@@ -1,10 +1,12 @@
 from sqlalchemy import func
 import quandl
-from datetime import timedelta, date
-from models import EquityHistorical, EquityReturns, NasdaqGlobalEquityIndex, NasdaqGlobalEquityReturns, CapmCoefficients, EquityErrors
+from datetime import timedelta, date, datetime
+from models import EquityHistorical, EquityReturns, NasdaqGlobalEquityIndex, NasdaqGlobalEquityReturns, CapmCoefficients, EquityErrors, OptionHistorical
 import pandas as pd
 from sklearn import linear_model
 from app import db
+import psycopg2
+import os
 
 
 class DataWrangling():
@@ -13,6 +15,7 @@ class DataWrangling():
     training_metric_boundry = date(2015, 12, 31)
     training_data_begin = date(2016, 1, 1)
     training_data_end = date(2016, 12, 31)
+    option_data_begin_date = date(2013, 1, 2)
     
     @staticmethod
     def calculate_equity_returns():
@@ -161,34 +164,90 @@ class DataWrangling():
             
             capm_params = db.session.query(CapmCoefficients).filter(CapmCoefficients.ticker == ticker).first()
             
-            query = db.session.query(EquityReturns.date.label("date"), EquityReturns.percent_return.label("stock"), NasdaqGlobalEquityReturns.percent_return.label("index")).join(NasdaqGlobalEquityReturns, EquityReturns.date == NasdaqGlobalEquityReturns.date).filter((EquityReturns.ticker == ticker) & (EquityReturns.date <= DataWrangling.training_data_end) & (EquityReturns.date >= DataWrangling.training_data_begin)).statement
+            if capm_params == None:
+                pass
+            else: 
+                query = db.session.query(EquityReturns.date.label("date"), EquityReturns.percent_return.label("stock"), NasdaqGlobalEquityReturns.percent_return.label("index")).join(NasdaqGlobalEquityReturns, EquityReturns.date == NasdaqGlobalEquityReturns.date).filter((EquityReturns.ticker == ticker) & (EquityReturns.date <= DataWrangling.training_data_end) & (EquityReturns.date >= DataWrangling.training_data_begin)).statement
+            
+                data = pd.read_sql(query, db.engine, index_col="date")
+                
+                data['error'] = data['stock'] - data['index']*capm_params.beta - capm_params.alpha
+                data['ticker'] = ticker
+                data.drop(['stock', 'index'], inplace=True, axis=1)
+                data.dropna(inplace=True)
+                
+                container = container.append(data)
+            
+            
+        container.to_sql('equity_errors', db.engine, if_exists='append', index=True, chunksize=25000)
         
-            data = pd.read_sql(query, db.engine, index_col="date")
-            
-            data['error'] = data['stock'] - data['index']*capm_params.beta - capm_params.alpha
-            data['ticker'] = ticker
-            data.drop(['stock', 'index'], inplace=True, axis=1)
-            data.dropna(inplace=True)
-            
-            container = container.append(data)
-            
-            
-        container.to_sql('equity_errors', db.engine, if_exists='append', index=True, chunksize=5000)
-            
-            
-            
-            
+    @staticmethod
+    def refresh_option_data():
         
-        
-        
-        
-            
-        
-    
-            
-            
-            
-        
+        scrapped_dates = [date.today()]
 
-    
+        for value in db.session.query(OptionHistorical.trade_date).distinct():
+            scrapped_dates.append(value.trade_date)
         
+        date_range = []
+        
+        option_date_range = pd.read_csv('https://www.quandl.com/api/v3/datatables/OR/OSMVDATES.csv?&api_key=iasNNCL-zjwhdxME_Jvx')
+        
+        for n in option_date_range['trade_date'].unique():
+                date_range.append(datetime.strptime(n, '%Y-%m-%d').date())
+                
+        dates_to_do = set(date_range) - set(scrapped_dates)
+        
+        
+        for day in dates_to_do:
+            print("[{timestamp}]: Working on {trade_day}".format(timestamp=datetime.now(), trade_day=day))
+            api_query_string = 'https://www.quandl.com/api/v3/databases/OSMV/download?download_type={date}&api_key={api_key}'.format(date=day.strftime('%Y%m%d'), api_key='iasNNCL-zjwhdxME_Jvx')
+            data = pd.read_csv(api_query_string, compression='zip')
+            column_names = {
+                'expirDate': 'experiation_date',
+                'stkPx': 'stock_price',
+                'yte': 'years_to_expiration',
+                'cVolu': 'call_volume',
+                'cOi': 'call_open_interest',
+                'pVolu': 'put_volume',
+                'pOi': 'put_open_interest',
+                'cBidPx': 'call_bid_price',
+                'cValue': 'call_theoretical_value',
+                'cAskPx': 'call_ask_price',
+                'pBidPx': 'put_bid_price',
+                'pValue': 'put_theoretical_value',
+                'pAskPx': 'put_ask_price',
+                'cBidIv': 'call_bid_implied_volitility',
+                'cMidIv': 'call_mid_market_implied_volitility',
+                'cAskIv': 'call_ask_implied_volitility',
+                'smoothSmvVol': 'smoothed_strike_implied_volitility',
+                'pBidIv': 'put_bid_implied_volitility',
+                'pMidIv': 'put_mid_market_implied_volitility',
+                'pAskIv': 'put_ask_implied_volitility',
+                'iRate': 'risk_free_interest_rate',
+                'divRate': 'dividend_rate',
+                'residualRateData': 'residual_rate_data',
+                'driftlessTheta': 'driftless_theta',
+                'extVol': 'extended_volitility',
+                'extCTheo': 'extended_call_theoretical_price',
+                'extPTheo': 'extended_put_theoretical_price',
+            }
+            data.rename(columns=column_names, inplace=True)
+            data.drop(['spot_px'], inplace=True, axis=1)
+            data.drop_duplicates(subset=['trade_date', 'ticker', 'strike', 'experiation_date'], keep=False, inplace=True)
+            data = data[(data.delta != 0) & (data.gamma != 0) & (data.theta != 0) & (data.vega != 0) & (data.rho != 0) & (data.phi != 0)]
+            data.fillna(0, inplace=True)
+            column_order = [m.key for m in OptionHistorical.__table__.columns]
+            data = data[column_order]
+            data.to_csv('option_historical_upload.csv', index=False, chunksize=5000)
+            connection = psycopg2.connect('dbname=marketdata user=bojangles password=apppas0! host=marketdata.chew6qxftqgr.us-east-1.rds.amazonaws.com port=5432')
+            cursor = connection.cursor()
+            copy_sql_string = """COPY {target_table} FROM STDIN WITH CSV HEADER DELIMITER AS ','""".format(target_table = OptionHistorical.__tablename__)
+            file_to_write = open("option_historical_upload.csv")
+            cursor.copy_expert(sql=copy_sql_string, file=file_to_write)
+            connection.commit()
+            cursor.close()
+            
+        os.remove("option_historical_upload.csv")
+            
+            

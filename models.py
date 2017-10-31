@@ -1,5 +1,4 @@
 from sqlalchemy import Column, Integer, String, Float, Date
-from sqlalchemy.ext.declarative import declarative_base
 from flask_sqlalchemy import SQLAlchemy
 from app import db
 
@@ -56,4 +55,47 @@ class EquityErrors(db.Model):
     ticker = Column(String(10), primary_key=True)
     date = Column(Date, primary_key=True)
     error = Column(Float, nullable=False)
+    
+class OptionHistorical(db.Model):
+    __tablename__ = 'option_historical'
+    trade_date = Column(Date, primary_key=True)
+    ticker = Column(String(10), primary_key=True)
+    experiation_date = Column(Date, primary_key=True)
+    strike = Column(Float, primary_key=True)
+    stock_price = Column(Float, nullable=False)
+    years_to_expiration = Column(Float, nullable=False)
+    call_volume = Column(Integer, nullable=False)
+    call_open_interest = Column(Integer, nullable=False)
+    put_volume = Column(Integer, nullable=False)
+    put_open_interest = Column(Integer, nullable=False)
+    call_bid_price = Column(Float, nullable=False)
+    call_theoretical_value = Column(Float, nullable=False)
+    call_ask_price = Column(Float, nullable=False)
+    put_bid_price = Column(Float, nullable=False)
+    put_theoretical_value = Column(Float, nullable=False)
+    put_ask_price = Column(Float, nullable=False)
+    call_bid_implied_volitility = Column(Float)
+    call_mid_market_implied_volitility = Column(Float)
+    call_ask_implied_volitility = Column(Float)
+    smoothed_strike_implied_volitility = Column(Float, nullable=False)
+    put_bid_implied_volitility = Column(Float)
+    put_mid_market_implied_volitility = Column(Float)
+    put_ask_implied_volitility = Column(Float)
+    risk_free_interest_rate = Column(Float, nullable=False)
+    dividend_rate = Column(Float, nullable=False)
+    residual_rate_data = Column(Float, nullable=False)
+    delta = Column(Float, nullable=False)
+    gamma = Column(Float, nullable=False)
+    theta = Column(Float, nullable=False)
+    vega = Column(Float, nullable=False)
+    rho = Column(Float, nullable=False)
+    phi = Column(Float, nullable=False)
+    driftless_theta = Column(Float, nullable=False)
+    extended_volitility = Column(Float, nullable=False)
+    extended_call_theoretical_price = Column(Float, nullable=False)
+    extended_put_theoretical_price = Column(Float, nullable=False)
+    trade_date = Column(Date, primary_key=True)
+    
+    
+    
 
