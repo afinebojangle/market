@@ -1,17 +1,17 @@
 from sqlalchemy import func
 import quandl
 from datetime import timedelta, date, datetime
-from models import EquityHistorical, EquityReturns, NasdaqGlobalEquityIndex, NasdaqGlobalEquityReturns, CapmCoefficients, EquityErrors, OptionHistorical
+from models import EquityHistorical, EquityReturns, NasdaqGlobalEquityIndex, NasdaqGlobalEquityReturns, CapmCoefficients, EquityErrors, OptionHistorical, EquityVolatilities, OptionTrainingLabels
 import pandas as pd
 from sklearn import linear_model
 from app import db
-import psycopg2
-import os
+from utility import copy_dataframe_to_database
 
 
 class DataWrangling():
-    
+   
     data_begin_date = date(2012, 12, 31)
+    equity_data_begin_date = date(2010, 12, 31)
     training_metric_boundry = date(2015, 12, 31)
     training_data_begin = date(2016, 1, 1)
     training_data_end = date(2016, 12, 31)
@@ -20,8 +20,8 @@ class DataWrangling():
     @staticmethod
     def calculate_equity_returns():
         
-        #db.session.query(EquityReturns).delete()
-        #db.session.commit()
+        db.session.query(EquityReturns).delete()
+        db.session.commit()
         
         tickers = []
         completed_tickers = []
@@ -36,7 +36,7 @@ class DataWrangling():
         tickers_to_do = set(tickers) - set(completed_tickers)
             
         for current_ticker in tickers_to_do:
-            date_boundry = [DataWrangling.data_begin_date]
+            date_boundry = [DataWrangling.equity_data_begin_date]
             for result in db.session.query(func.max(EquityReturns.date).label("date")).filter(EquityReturns.ticker == current_ticker).all():
                 date_boundry.append(result.date)
             max_date = max(i for i in date_boundry if i is not None)
@@ -49,8 +49,38 @@ class DataWrangling():
             data.drop(['close', 'prior_close', 'adj_close'], inplace=True, axis=1)
             data.dropna(inplace=True)
             data.drop(data[data.index <= max_date].index, inplace=True)
-            data.to_sql('equity_returns', db.engine, if_exists='append', chunksize=5000)
+            copy_dataframe_to_database(data, EquityReturns)
+
             
+    @staticmethod
+    def calculate_equity_volatilities():
+        tickers = []
+        completed_tickers = []
+        tickers_to_do = []
+        
+        db.session.query(EquityVolatilities).delete()
+        db.session.commit()
+        
+        for result in db.session.query(EquityHistorical.ticker).distinct().all():
+            tickers.append(result.ticker)
+        
+        for result in db.session.query(EquityVolatilities.ticker).distinct().all():
+            completed_tickers.append(result.ticker)
+            
+        tickers_to_do = set(tickers) - set(completed_tickers)
+        
+        for current_ticker in tickers_to_do:
+            query = db.session.query(EquityReturns).filter(EquityReturns.ticker == current_ticker).order_by(EquityReturns.date.asc()).statement
+            data = pd.read_sql(query, db.engine)
+            data['ma_10'] = data['nominal_return'].rolling(window=10, center=False).std()
+            data['ma_50'] = data['nominal_return'].rolling(window=50, center=False).std()
+            data['ma_100'] = data['nominal_return'].rolling(window=100, center=False).std()
+            data['ma_250'] = data['nominal_return'].rolling(window=250, center=False).std()
+            data.fillna(0, inplace=True)
+            data.drop(['nominal_return', 'percent_return'], inplace=True, axis=1)
+            column_order = [m.key for m in EquityVolatilities.__table__.columns]
+            data = data[column_order]
+            copy_dataframe_to_database(data, EquityVolatilities, with_index=False)
             
     @staticmethod
     def calculate_nasdaq_global_equity_returns():
@@ -82,23 +112,34 @@ class DataWrangling():
     @staticmethod
     def refresh_equity_data():
         quandl.ApiConfig.api_key = 'iasNNCL-zjwhdxME_Jvx'
-        scrapped_dates = []
+        scrapped_dates = [date.today()]
 
         for value in db.session.query(EquityHistorical.date).distinct():
             scrapped_dates.append(value.date)
         
         date_range = []
         
-        for n in range((date.today() - DataWrangling.data_begin_date).days):
-                date_range.append(DataWrangling.data_begin_date + timedelta(n))
+        for n in range((date.today() - DataWrangling.equity_data_begin_date).days):
+                date_range.append(DataWrangling.equity_data_begin_date + timedelta(n))
                 
-        dates_to_do = list(set(date_range) - set(scrapped_dates))
+        dates_to_do = set(date_range) - set(scrapped_dates)
         
         for day in dates_to_do:
             data = quandl.get_table('WIKI/PRICES', date=day.strftime('%Y%m%d'))
             data.rename(columns={'ex-dividend': 'ex_dividend'}, inplace=True)
             data.dropna(inplace=True)
-            data.to_sql('equity_historical', db.engine, if_exists='append', index=False, chunksize=5000)
+            data['volume'] = data['volume'].astype(int)
+            data['adj_volume'] = data['adj_volume'].astype(int)
+            data.to_csv('equity_historical_upload.csv', index=False, chunksize=5000)
+            connection = psycopg2.connect('dbname=marketdata user=bojangles password=apppas0! host=marketdata.chew6qxftqgr.us-east-1.rds.amazonaws.com port=5432')
+            cursor = connection.cursor()
+            copy_sql_string = """COPY {target_table} FROM STDIN WITH CSV HEADER DELIMITER AS ','""".format(target_table = EquityHistorical.__tablename__)
+            file_to_write = open("equity_historical_upload.csv")
+            cursor.copy_expert(sql=copy_sql_string, file=file_to_write)
+            connection.commit()
+            cursor.close()
+            os.remove("equity_historical_upload.csv")
+            
             
                 
                 
@@ -247,7 +288,36 @@ class DataWrangling():
             cursor.copy_expert(sql=copy_sql_string, file=file_to_write)
             connection.commit()
             cursor.close()
+            os.remove("option_historical_upload.csv")   
             
-        os.remove("option_historical_upload.csv")
+    @staticmethod
+    def calculate_long_call_training_labels():
+        all_dates = []
+        scrapped_dates = []
+        for value in db.session.query(OptionHistorical.trade_date).distinct():
+            all_dates.append(value.trade_date)
+        completed_dates = []
+        for value in db.session.query(OptionTrainingLabels.trade_date).filter(OptionTrainingLabels.trade_type == "Long Call").distinct():
+            scrapped_dates.append(value.trade_date)
+        dates_to_do = set(all_dates) - set(completed_dates)
+        for day in dates_to_do:
+            print("[{timestamp}]: Working on {trade_day}".format(timestamp=datetime.now(), trade_day=day))
+            #base_data_query = db.session.query(OptionHistorical.ticker, OptionHistorical.experiation_date, OptionHistorical.strike, OptionHistorical.trade_date, OptionHistorical.call_ask_price).filter(OptionHistorical.trade_date == day).statement
+            #max_price_query = db.session.query(OptionHistorical.ticker, OptionHistorical.experiation_date, OptionHistorical.strike, OptionHistorical.trade_date, func.max(OptionHistorical.call_bid_price).label("max_sale_price")).group_by(OptionHistorical.ticker, OptionHistorical.experiation_date, OptionHistorical.strike, OptionHistorical.trade_date).filter(OptionHistorical.trade_date >= day).statement
+            #base_data_df = pd.read_sql(base_data_query, db.engine)
+            #max_price_df = pd.read_sql(max_price_query, db.engine)
             
+            query_string = """WITH max_price_data AS (SELECT ticker, experiation_date, strike, max(call_bid_price) as max_sales_price FROM option_historical WHERE trade_date >= to_date('{day_working_on}', 'YYYY-MM-DD') GROUP BY ticker, experiation_date, strike)
+                              SELECT option_historical.ticker, option_historical.experiation_date, option_historical.strike, option_historical.trade_date, option_historical.call_ask_price as buy_price, max_price_data.max_sales_price
+                              FROM option_historical JOIN max_price_data
+                                ON option_historical.ticker = max_price_data.ticker
+                                AND option_historical.experiation_date = max_price_data.experiation_date
+                                AND option_historical.strike = max_price_data.strike
+                                 """.format(day_working_on = day) 
             
+            data = pd.read_sql(query_string, db.engine)
+            data['trade_type'] = "Long Call"
+            data['label'] = (data['max_sales_price'] - data['buy_price']) / data['buy_price']
+            data.drop(['buy_price', 'max_sales_price'], inplace=True, axis=1)
+            data.dropna(inplace=True)
+            copy_dataframe_to_database(data, OptionTrainingLabels, with_index=False)

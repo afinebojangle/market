@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Date
+from sqlalchemy import Column, Integer, String, Float, Date, BigInteger
 from flask_sqlalchemy import SQLAlchemy
 from app import db
 
@@ -11,14 +11,14 @@ class EquityHistorical(db.Model):
     high = Column(Float, nullable=False)
     low = Column(Float, nullable=False)
     close = Column(Float, nullable=False)
-    volume = Column(Integer, nullable=False)
+    volume = Column(BigInteger, nullable=False)
     ex_dividend = Column(Float, nullable=False)
     split_ratio = Column(Float, nullable=False)
     adj_open = Column(Float, nullable=False)
     adj_high = Column(Float, nullable=False)
     adj_low = Column(Float, nullable=False)
     adj_close = Column(Float, nullable=False)
-    adj_volume = Column(Integer, nullable=False)
+    adj_volume = Column(BigInteger, nullable=False)
     
     
 class NasdaqGlobalEquityIndex(db.Model):
@@ -58,7 +58,6 @@ class EquityErrors(db.Model):
     
 class OptionHistorical(db.Model):
     __tablename__ = 'option_historical'
-    trade_date = Column(Date, primary_key=True)
     ticker = Column(String(10), primary_key=True)
     experiation_date = Column(Date, primary_key=True)
     strike = Column(Float, primary_key=True)
@@ -95,6 +94,25 @@ class OptionHistorical(db.Model):
     extended_call_theoretical_price = Column(Float, nullable=False)
     extended_put_theoretical_price = Column(Float, nullable=False)
     trade_date = Column(Date, primary_key=True)
+
+class EquityVolatilities(db.Model):
+    __tablename__ = 'equity_volatilities'
+    ticker = Column(String(10), primary_key=True)
+    date = Column(Date, primary_key=True)
+    ma_10 = Column(Float, nullable=False)
+    ma_50 = Column(Float, nullable=False)
+    ma_100 = Column(Float, nullable=False)
+    ma_250 = Column(Float, nullable=False)
+    
+class OptionTrainingLabels(db.Model):
+    __tablename__ = 'option_training_labels'
+    ticker = Column(String(10), primary_key=True)
+    experiation_date = Column(Date, primary_key=True)
+    strike = Column(Float, primary_key=True)
+    trade_date = Column(Date, primary_key=True)
+    trade_type = Column(String(50), nullable=False)
+    label = Column(Float, nullable=False)
+    
     
     
     

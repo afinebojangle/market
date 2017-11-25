@@ -1,4 +1,4 @@
 /market/*
 
 /__*
-/option_historical_upload.csv
+/*.csv
