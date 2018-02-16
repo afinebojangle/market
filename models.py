@@ -110,10 +110,16 @@ class OptionTrainingLabels(db.Model):
     experiation_date = Column(Date, primary_key=True)
     strike = Column(Float, primary_key=True)
     trade_date = Column(Date, primary_key=True)
-    trade_type = Column(String(50), nullable=False)
+    trade_type = Column(String(50), primary_key=True)
     label = Column(Float, nullable=False)
     
-    
-    
-    
-
+class OptionForwardPrices(db.Model):
+    __tablename__ = 'option_forward_prices'
+    ticker = Column(String(10), primary_key=True)
+    experiation_date = Column(Date, primary_key=True)
+    strike = Column(Float, primary_key=True)
+    trade_date = Column(Date, primary_key=True)
+    max_forward_call_bid_price = Column(Float, nullable=False)
+    max_forward_call_ask_price = Column(Float, nullable=False)
+    max_forward_put_bid_price = Column(Float, nullable=False)
+    max_forward_put_ask_price = Column(Float, nullable=False)

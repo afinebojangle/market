@@ -1,11 +1,12 @@
 import pandas as pd
 import psycopg2
 import os
+from threading import get_ident
 
 
 def copy_dataframe_to_database(dataframe, model, with_index=True):
     table_name = model.__tablename__
-    csv_name = "{target_table}_upload.csv".format(target_table = table_name)
+    csv_name = "{target_table}_{thread_id}_upload.csv".format(target_table = table_name, thread_id = get_ident())
     dataframe.to_csv(csv_name, index=with_index, chunksize=5000)
     connection = psycopg2.connect('dbname=marketdata user=bojangles password=apppas0! host=marketdata.chew6qxftqgr.us-east-1.rds.amazonaws.com port=5432')
     cursor = connection.cursor()

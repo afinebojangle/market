@@ -1,7 +1,7 @@
 from sqlalchemy import func
 import quandl
 from datetime import timedelta, date, datetime
-from models import EquityHistorical, EquityReturns, NasdaqGlobalEquityIndex, NasdaqGlobalEquityReturns, CapmCoefficients, EquityErrors, OptionHistorical, EquityVolatilities, OptionTrainingLabels
+from models import EquityHistorical, EquityReturns, NasdaqGlobalEquityIndex, NasdaqGlobalEquityReturns, CapmCoefficients, EquityErrors, OptionHistorical, EquityVolatilities, OptionTrainingLabels, OptionForwardPrices
 import pandas as pd
 from sklearn import linear_model
 from app import db
@@ -219,34 +219,29 @@ class DataWrangling():
             column_order = [m.key for m in OptionHistorical.__table__.columns]
             data = data[column_order]
             copy_dataframe_to_database(data, OptionHistorical, with_index=False)
-   
+            
             
     @staticmethod
-    def calculate_long_call_training_labels():
+    def calculate_option_forward_prices():
         all_dates = []
         scrapped_dates = []
         for value in db.session.query(OptionHistorical.trade_date).distinct():
             all_dates.append(value.trade_date)
-        completed_dates = []
-        for value in db.session.query(OptionTrainingLabels.trade_date).filter(OptionTrainingLabels.trade_type == "Long Call").distinct():
+        for value in db.session.query(OptionForwardPrices.trade_date).distinct():
             scrapped_dates.append(value.trade_date)
-        dates_to_do = set(all_dates) - set(completed_dates)
+        dates_to_do = set(all_dates) - set(scrapped_dates)
         for day in dates_to_do:
             print("[{timestamp}]: Working on {trade_day}".format(timestamp=datetime.now(), trade_day=day))
-            query_string = """WITH max_price_data AS (SELECT ticker, experiation_date, strike, max(call_bid_price) as max_sales_price FROM option_historical WHERE trade_date >= to_date('{day_working_on}', 'YYYY-MM-DD') AND (ticker, experiation_date, strike) IN (SELECT ticker, experiation_date, strike FROM option_historical WHERE trade_date = to_date('{day_working_on}', 'YYYY-MM-DD')) GROUP BY ticker, experiation_date, strike)
-                              SELECT option_historical.ticker, option_historical.experiation_date, option_historical.strike, option_historical.trade_date, option_historical.call_ask_price as buy_price, max_price_data.max_sales_price
-                              FROM option_historical JOIN max_price_data
-                                ON option_historical.ticker = max_price_data.ticker
-                                AND option_historical.experiation_date = max_price_data.experiation_date
-                                AND option_historical.strike = max_price_data.strike
-                                 """.format(day_working_on = day)
-            
+            query_string = """SELECT ticker, experiation_date, strike, max(call_bid_price) as max_forward_call_bid_price, max(call_ask_price) as max_forward_call_ask_price, max(put_bid_price) as max_forward_put_bid_price, max(put_ask_price) as max_forward_put_ask_price
+                              FROM option_historical
+                              WHERE trade_date >= to_date('{day_working_on}', 'YYYY-MM-DD')
+                                AND (ticker, experiation_date, strike) = ANY(SELECT ticker, experiation_date, strike FROM option_historical WHERE trade_date = to_date('{day_working_on}', 'YYYY-MM-DD'))
+                              GROUP BY ticker, experiation_date, strike""".format(day_working_on = day)
             data = pd.read_sql(query_string, db.engine)
-            data['trade_type'] = "Long Call"
-            data['label'] = (data['max_sales_price'] - data['buy_price']) / data['buy_price']
-            data.drop(['buy_price', 'max_sales_price'], inplace=True, axis=1)
+            data['trade_date'] = day
             data.dropna(inplace=True)
-            copy_dataframe_to_database(data, OptionTrainingLabels, with_index=False)
+            column_order = [m.key for m in OptionForwardPrices.__table__.columns]
+            data = data[column_order]
+            copy_dataframe_to_database(data, OptionForwardPrices, with_index=False)
             
-             
-            
+    
