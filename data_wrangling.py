@@ -241,7 +241,7 @@ class DataWrangling():
             data['trade_date'] = day
             data.dropna(inplace=True)
             data.drop_duplicates(subset=['trade_date', 'ticker', 'strike', 'experiation_date'], keep=False, inplace=True)
-	    column_order = [m.key for m in OptionForwardPrices.__table__.columns]
+	        column_order = [m.key for m in OptionForwardPrices.__table__.columns]
             data = data[column_order]
             copy_dataframe_to_database(data, OptionForwardPrices, with_index=False)
                 
