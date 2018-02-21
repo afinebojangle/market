@@ -3,6 +3,7 @@ import psycopg2
 import os
 from threading import get_ident
 
+#ssh -p 33257 rayford@71.220.226.166
 
 def copy_dataframe_to_database(dataframe, model, with_index=True):
     table_name = model.__tablename__
