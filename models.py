@@ -123,3 +123,14 @@ class OptionForwardPrices(db.Model):
     max_forward_call_ask_price = Column(Float, nullable=False)
     max_forward_put_bid_price = Column(Float, nullable=False)
     max_forward_put_ask_price = Column(Float, nullable=False)
+
+class OptionForwardVolatilities(db.Model):
+	__tablename__ = 'option_forward_volatilities'
+	ticker = Column(String(10), primary_key=True)
+	experiation_date = Column(Date, primary_key=True)
+	strike = Column(Float, primary_key=True)
+	trade_date = Column(Date, primary_key=True)
+	forward_call_bid_volatility = Column(Float, nullable=False)
+	forward_call_ask_volatility = Column(Float, nullable=False)
+	forward_put_bid_volatility = Column(Float, nullable=False)
+	forward_put_ask_volatility = Column(Float, nullable=False)

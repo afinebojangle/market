@@ -1,7 +1,7 @@
 from sqlalchemy import func
 import quandl
 from datetime import timedelta, date, datetime
-from models import EquityHistorical, EquityReturns, NasdaqGlobalEquityIndex, NasdaqGlobalEquityReturns, CapmCoefficients, EquityErrors, OptionHistorical, EquityVolatilities, OptionTrainingLabels, OptionForwardPrices
+from models import EquityHistorical, EquityReturns, NasdaqGlobalEquityIndex, NasdaqGlobalEquityReturns, CapmCoefficients, EquityErrors, OptionHistorical, EquityVolatilities, OptionTrainingLabels, OptionForwardPrices, OptionForwardVolatilities
 import pandas as pd
 from sklearn import linear_model
 from app import db
@@ -219,8 +219,7 @@ class DataWrangling():
             column_order = [m.key for m in OptionHistorical.__table__.columns]
             data = data[column_order]
             copy_dataframe_to_database(data, OptionHistorical, with_index=False)
-            
-            
+                    
     @staticmethod
     def calculate_option_forward_prices():
         all_dates = []
@@ -233,15 +232,40 @@ class DataWrangling():
         for day in dates_to_do:
             print("[{timestamp}]: Working on {trade_day}".format(timestamp=datetime.now(), trade_day=day))
             query_string = """SELECT ticker, experiation_date, strike, max(call_bid_price) as max_forward_call_bid_price, max(call_ask_price) as max_forward_call_ask_price, max(put_bid_price) as max_forward_put_bid_price, max(put_ask_price) as max_forward_put_ask_price
-                              FROM option_historical
-                              WHERE trade_date >= to_date('{day_working_on}', 'YYYY-MM-DD')
-                                AND (ticker, experiation_date, strike) = ANY(SELECT ticker, experiation_date, strike FROM option_historical WHERE trade_date = to_date('{day_working_on}', 'YYYY-MM-DD'))
-                              GROUP BY ticker, experiation_date, strike""".format(day_working_on = day)
+            FROM option_historical
+            WHERE trade_date >= to_date('{day_working_on}', 'YYYY-MM-DD')
+            AND (ticker, experiation_date, strike) = ANY(SELECT ticker, experiation_date, strike FROM option_historical WHERE trade_date = to_date('{day_working_on}', 'YYYY-MM-DD'))
+            GROUP BY ticker, experiation_date, strike""".format(day_working_on = day)
             data = pd.read_sql(query_string, db.engine)
             data['trade_date'] = day
             data.dropna(inplace=True)
             data.drop_duplicates(subset=['trade_date', 'ticker', 'strike', 'experiation_date'], keep=False, inplace=True)
-	        column_order = [m.key for m in OptionForwardPrices.__table__.columns]
+            column_order = [m.key for m in OptionForwardPrices.__table__.columns]
             data = data[column_order]
             copy_dataframe_to_database(data, OptionForwardPrices, with_index=False)
-                
+
+    @staticmethod
+    def calculate_option_forward_volatilities():
+    	all_dates = []
+    	scrapped_dates = []
+    	for value in db.session.query(OptionHistorical.trade_date).distinct():
+    		all_dates.append(value.trade_date)
+    	for value in db.session.query(OptionForwardVolatilities.trade_date).distinct():
+    		scrapped_dates.append(value.trade_date)
+    	dates_to_do = set(all_dates) - set(scrapped_dates)
+    	for day in dates_to_do:
+    		print("[{timestamp}]: Working on {trade_day}".format(timestamp=datetime.now(), trade_day=day))
+    		query_string = """SELECT ticker, experiation_date, strike, stddev_pop(call_bid_price) as forward_call_bid_volatility, stddev_pop(call_ask_price) as forward_call_ask_volatility, stddev_pop(put_bid_price) as forward_put_bid_volatility, stddev_pop(put_ask_price) as forward_put_ask_volatility
+    		FROM option_historical
+    		WHERE trade_date >= to_date('{day_working_on}', 'YYYY-MM-DD') 
+    		AND (ticker, experiation_date, strike) = ANY(SELECT ticker, experiation_date, strike FROM option_historical WHERE trade_date = to_date('{day_working_on}', 'YYYY-MM-DD'))
+    		GROUP BY ticker, experiation_date, strike""".format(day_working_on = day)
+    		data = pd.read_sql(query_string, db.engine)
+    		data['trade_date'] = day
+    		data.dropna(inplace=True)
+    		data.drop_duplicates(subset=['trade_date', 'ticker', 'strike', 'experiation_date'], keep=False, inplace=True)
+    		column_order = [m.key for m in OptionForwardVolatilities.__table__.columns]
+    		data = data[column_order]
+    		copy_dataframe_to_database(data, OptionForwardVolatilities, with_index=False)
+
+
