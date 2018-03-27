@@ -1,4 +1,4 @@
-/* Create Training Dataset */
+/* Create Training and Analysis Datasets. To switch from analysis to training, comment out the where clauses that restrict date ranges and check the "TO" clause at the end for file output options */
 
 COPY (
 --long call
@@ -28,6 +28,7 @@ FROM option_historical as oh
     JOIN option_forward_prices as ofp on oh.ticker = ofp.ticker and oh.trade_date = ofp.trade_date and oh.experiation_date = ofp.experiation_date and oh.strike = ofp.strike
     JOIN option_forward_volatilities as ofv on oh.ticker = ofv.ticker and oh.trade_date = ofv.trade_date and oh.experiation_date = ofv.experiation_date and oh.strike = ofv.strike
 WHERE oh.stock_price <> 0 and oh.call_ask_price <> 0)
+    AND oh.trade_date > to_date(20161231, "YYYYMMDD")
 
 UNION
 --short call
@@ -58,6 +59,7 @@ FROM option_historical as oh
     JOIN option_forward_prices as ofp on oh.ticker = ofp.ticker and oh.trade_date = ofp.trade_date and oh.experiation_date = ofp.experiation_date and oh.strike = ofp.strike
     JOIN option_forward_volatilities as ofv on oh.ticker = ofv.ticker and oh.trade_date = ofv.trade_date and oh.experiation_date = ofv.experiation_date and oh.strike = ofv.strike
 WHERE oh.stock_price <> 0 and oh.call_bid_price <> 0)
+    AND oh.trade_date > to_date(20161231, "YYYYMMDD")
 
 UNION
 --long put
@@ -88,6 +90,7 @@ FROM option_historical as oh
     JOIN option_forward_prices as ofp on oh.ticker = ofp.ticker and oh.trade_date = ofp.trade_date and oh.experiation_date = ofp.experiation_date and oh.strike = ofp.strike
     JOIN option_forward_volatilities as ofv on oh.ticker = ofv.ticker and oh.trade_date = ofv.trade_date and oh.experiation_date = ofv.experiation_date and oh.strike = ofv.strike
 WHERE oh.stock_price <> 0 and oh.put_ask_price <> 0)
+    AND oh.trade_date > to_date(20161231, "YYYYMMDD")
 
 UNION
 --short put
@@ -118,5 +121,24 @@ FROM option_historical as oh
     JOIN option_forward_prices as ofp on oh.ticker = ofp.ticker and oh.trade_date = ofp.trade_date and oh.experiation_date = ofp.experiation_date and oh.strike = ofp.strike
     JOIN option_forward_volatilities as ofv on oh.ticker = ofv.ticker and oh.trade_date = ofv.trade_date and oh.experiation_date = ofv.experiation_date and oh.strike = ofv.strike
 WHERE oh.stock_price <> 0 and oh.put_bid_price <> 0)
+    AND oh.trade_date > to_date(20161231, "YYYYMMDD")
 )
-TO '/home/rayford/storage/training_data.csv' WITH CSV HEADER DELIMITER ','
+TO '/home/rayford/storage/analysis_data.csv' WITH CSV HEADER DELIMITER ','
+
+
+
+/* diagnose why so many options are falling out of training dataset */
+
+SELECT oh.trade_date as date, count(oh.ticker) as option_tickers, count(eh.ticker) as equity_tickers
+FROM option_historical as oh LEFT OUTER JOIN equity_historical as eh on oh.ticker = eh.ticker and oh.trade_date = eh.date
+GROUP BY oh.trade_date
+HAVING count(oh.ticker) <> count(eh.ticker)
+
+
+/* Figure out Label Bucket Scheme */
+
+WITH stuff AS (SELECT (ofp.max_forward_call_bid_price - oh.call_ask_price) / oh.call_ask_price as return
+FROM option_historical as oh JOIN option_forward_prices as ofp on oh.ticker = ofp.ticker and oh.trade_date = ofp.trade_date and oh.experiation_date = ofp.experiation_date and oh.strike = ofp.strike
+WHERE oh.stock_price <> 0 and oh.call_ask_price <> 0)
+SELECT avg(return) as average, min(return) as min, max(return) as max, stddev_pop(return) as std
+FROM stuff
