@@ -14,7 +14,7 @@ class DataWrangling():
     equity_data_begin_date = date(2010, 12, 31)
     training_metric_boundry = date(2015, 12, 31)
     training_data_begin = date(2016, 1, 1)
-    training_data_end = date(2016, 12, 31)
+    training_data_end = date(2017, 12, 31)
     option_data_begin_date = date(2013, 1, 2)
     
     @staticmethod
