@@ -47,7 +47,7 @@ FROM option_historical as oh
     JOIN option_forward_prices as ofp on oh.ticker = ofp.ticker and oh.trade_date = ofp.trade_date and oh.experiation_date = ofp.experiation_date and oh.strike = ofp.strike
     JOIN option_forward_volatilities as ofv on oh.ticker = ofv.ticker and oh.trade_date = ofv.trade_date and oh.experiation_date = ofv.experiation_date and oh.strike = ofv.strike
 WHERE oh.stock_price <> 0 and oh.call_ask_price <> 0 and oh.call_ask_price <> 0 and oh.call_bid_price <> 0
-    --and oh.trade_date > to_date('20161130', 'YYYYMMDD')
+    and oh.trade_date < to_date('20161201', 'YYYYMMDD')
     )
 
 
@@ -99,7 +99,7 @@ FROM option_historical as oh
     JOIN option_forward_prices as ofp on oh.ticker = ofp.ticker and oh.trade_date = ofp.trade_date and oh.experiation_date = ofp.experiation_date and oh.strike = ofp.strike
     JOIN option_forward_volatilities as ofv on oh.ticker = ofv.ticker and oh.trade_date = ofv.trade_date and oh.experiation_date = ofv.experiation_date and oh.strike = ofv.strike
 WHERE oh.stock_price <> 0 and oh.call_bid_price <> 0 and oh.call_bid_price <> 0 and oh.call_ask_price <> 0
-    --and oh.trade_date > to_date('20161130', 'YYYYMMDD')
+    and oh.trade_date < to_date('20161201', 'YYYYMMDD')
     )
 
 UNION
@@ -150,7 +150,7 @@ FROM option_historical as oh
     JOIN option_forward_prices as ofp on oh.ticker = ofp.ticker and oh.trade_date = ofp.trade_date and oh.experiation_date = ofp.experiation_date and oh.strike = ofp.strike
     JOIN option_forward_volatilities as ofv on oh.ticker = ofv.ticker and oh.trade_date = ofv.trade_date and oh.experiation_date = ofv.experiation_date and oh.strike = ofv.strike
 WHERE oh.stock_price <> 0 and oh.put_ask_price <> 0 and oh.put_ask_price <> 0 and oh.put_bid_price <> 0
-    --and oh.trade_date > to_date('20161130', 'YYYYMMDD')
+    and oh.trade_date < to_date('20161201', 'YYYYMMDD')
     )
 
 UNION
@@ -201,7 +201,7 @@ FROM option_historical as oh
     JOIN option_forward_prices as ofp on oh.ticker = ofp.ticker and oh.trade_date = ofp.trade_date and oh.experiation_date = ofp.experiation_date and oh.strike = ofp.strike
     JOIN option_forward_volatilities as ofv on oh.ticker = ofv.ticker and oh.trade_date = ofv.trade_date and oh.experiation_date = ofv.experiation_date and oh.strike = ofv.strike
 WHERE oh.stock_price <> 0 and oh.put_bid_price <> 0 and oh.put_bid_price <> 0 and oh.put_ask_price <> 0
-    --and oh.trade_date > to_date('20161130', 'YYYYMMDD')
+    and oh.trade_date < to_date('20161201', 'YYYYMMDD')
     )
 )
 TO '/home/rayford/storage/training_data.csv' WITH CSV HEADER DELIMITER ','

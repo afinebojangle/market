@@ -20,7 +20,7 @@ _CSV_COLUMN_DEFAULTS = [[''], [0], [0], [''], [0], [0],
                     [0], [0], [0], [0], [0],
                     [0], [0], [0], [0], [0], [0], ['']]
 
-_NUM_EXAMPLES = {'train': 164316229, 'validation': 0}
+_NUM_EXAMPLES = {'train': 150586010, 'validation': 13730218}
 
 LOSS_PREFIX = {'wide': 'linear/', 'deep': 'dnn/'}
 
