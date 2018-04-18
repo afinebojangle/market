@@ -12,7 +12,7 @@ COPY (
 ,   oh.stock_price as stock_price
 ,   (oh.strike-oh.stock_price)/oh.stock_price as pct_strike_variance
 ,   oh.call_ask_price as option_price
-,   oh.call_ask_implied_volitility/oh.call_ask_price as pct_implied_volitility
+,   oh.call_ask_implied_volitility/oh.call_ask_price as pct_implied_volatility
 ,   oh.delta as delta
 ,   oh.gamma as gamma
 ,   oh.theta as theta
@@ -64,7 +64,7 @@ UNION
 ,   oh.stock_price as stock_price
 ,   (oh.strike-oh.stock_price)/oh.stock_price as pct_strike_variance
 ,   oh.call_bid_price as option_price
-,   oh.call_bid_implied_volitility/oh.call_bid_price as pct_implied_volitility
+,   oh.call_bid_implied_volitility/oh.call_bid_price as pct_implied_volatility
 ,   oh.delta as delta
 ,   oh.gamma as gamma
 ,   oh.theta as theta
@@ -115,7 +115,7 @@ UNION
 ,   oh.stock_price as stock_price
 ,   (oh.strike-oh.stock_price)/oh.stock_price as pct_strike_variance
 ,   oh.put_ask_price as option_price
-,   oh.put_ask_implied_volitility/oh.put_ask_price as pct_implied_volitility
+,   oh.put_ask_implied_volitility/oh.put_ask_price as pct_implied_volatility
 ,   oh.delta as delta
 ,   oh.gamma as gamma
 ,   oh.theta as theta
@@ -166,7 +166,7 @@ UNION
 ,   oh.stock_price as stock_price
 ,   (oh.strike-oh.stock_price)/oh.stock_price as pct_strike_variance
 ,   oh.put_bid_price as option_price
-,   oh.put_bid_implied_volitility/oh.put_bid_price as pct_implied_volitility
+,   oh.put_bid_implied_volitility/oh.put_bid_price as pct_implied_volatility
 ,   oh.delta as delta
 ,   oh.gamma as gamma
 ,   oh.theta as theta
