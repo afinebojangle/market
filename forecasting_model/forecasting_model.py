@@ -17,10 +17,9 @@ LABEL_VOCAB = ['-51', '-52', '-53', '-54', '-55', '-56', '-57',
                '41', '42', '43', '44', '45', '46', '47',
                '51', '52', '53', '54', '55', '56', '57']
 
-#last default for label has to be an int data type since after we convert labels to one-hots below the one-hot will hold ints and tensorflow cares.
 _CSV_COLUMN_DEFAULTS = [[''], [0.0], [0.0], [''], [0.0], [0.0],
                         [0.0], [0.0], [0.0], [0.0], [0.0],
-                        [0.0], [0.0], [0.0], [0.0], [0.0], [0.0], [0]]
+                        [0.0], [0.0], [0.0], [0.0], [0.0], [0.0], [1]]
 
 def build_feature_columns():
     ticker = tf.feature_column.categorical_column_with_hash_bucket('ticker', hash_bucket_size=10000)
@@ -69,12 +68,7 @@ def input_fn(data_file, num_epochs, shuffle, batch_size):
         print('Parsing', data_file)
         columns = tf.decode_csv(value, record_defaults=_CSV_COLUMN_DEFAULTS)
         features = dict(zip(_CSV_COLUMNS, columns))
-        try:
-            labels = tf.one_hot(LABEL_VOCAB.index(features.pop('label').eval()), len(LABEL_VOCAB))
-        except:
-            print('-' * 60)
-            print('Error Encoding Label')
-            labels = tf.one_hot(1, len(LABEL_VOCAB))
+        labels = features.pop('label')
 
         return features, labels
 
@@ -83,7 +77,7 @@ def input_fn(data_file, num_epochs, shuffle, batch_size):
     if shuffle:
         dataset = dataset.shuffle(buffer_size=100000000)
 
-    dataset = dataset.map(parse_csv, num_parallel_calls=6)
+    dataset = dataset.map(parse_csv, num_parallel_calls=12)
     dataset = dataset.repeat(num_epochs)
     dataset = dataset.batch(batch_size)
     return dataset.make_one_shot_iterator().get_next()
@@ -111,34 +105,34 @@ def model_fn(features, labels, mode, params):
         return tf.estimator.EstimatorSpec(mode, predictions=predictions)
 
     #compute loss
-    loss = tf.losses.softmax_cross_entropy(onehot_labels=labels, logits=logits)
+    loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=logits)
 
     #compute evaluation metrics
     accuracy = tf.metrics.accuracy(labels=labels, predictions=predicted_classes, name='acc_op')
 
     metrics = {'accuracy': accuracy}
-    tf.summary.scalar('accuracy', accuracy)
+    tf.summary.scalar('accuracy', accuracy[1])
 
-    optimizer = tf.train.AdagradOptimizer(learning_rate=0.1)
+    optimizer = tf.train.AdagradOptimizer(learning_rate=0.05)
     train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
 
-    return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op_)
+    return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
 
 def main(argv):
     # Clean up the model directory if present
-    shutil.rmtree('/home/rayford/code/market/forecasting_model/run1', ignore_errors=True)
+    shutil.rmtree('/home/rayford/code/market/forecasting_model/run2', ignore_errors=True)
 
     feature_columns = build_feature_columns()
 
     def train_input_fn():
-        return input_fn('/home/rayford/code/tensorflow_data/training_data.csv', 1, True, 1000)
+        return input_fn('/home/rayford/code/tensorflow_data/new_training_data.csv', 1, True, 5000)
 
     def eval_input_fn():
-        return input_fn('home/rayford/code/tensorflow_data/testing_data.csv', 1, False, 1000)
+        return input_fn('home/rayford/code/tensorflow_data/new_testing_data.csv', 1, False, 5000)
 
     classifier = tf.estimator.Estimator(
         model_fn=model_fn,
-        model_dir='/home/rayford/code/market/forecasting_model/run1',
+        model_dir='/home/rayford/code/market/forecasting_model/run2',
         params={
             'feature_columns': feature_columns,
         })

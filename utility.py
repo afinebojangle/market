@@ -2,6 +2,7 @@ import pandas as pd
 import psycopg2
 import os
 from threading import get_ident
+import csv
 
 #ssh -p 33257 rayford@71.220.185.82
 
@@ -17,3 +18,26 @@ def copy_dataframe_to_database(dataframe, model, with_index=True):
     connection.commit()
     cursor.close()
     os.remove(csv_name)
+
+def convert_training_labels(read_path, write_path):
+    vocab = ['-51', '-52', '-53', '-54', '-55', '-56', '-57',
+             '-41', '-42', '-43', '-44', '-45', '-46', '-47',
+             '-31', '-32', '-33', '-34', '-35', '-36', '-37',
+             '-21', '-22', '-23', '-24', '-25', '-26', '-27',
+             '-11', '-12', '-13', '-14', '-15', '-16', '-17',
+             '11', '12', '13', '14', '15', '16', '17',
+             '21', '22', '23', '24', '25', '26', '27',
+             '31', '32', '33', '34', '35', '36', '37',
+             '41', '42', '43', '44', '45', '46', '47',
+             '51', '52', '53', '54', '55', '56', '57']
+                                                                                                                       
+    with open(read_path) as file:
+        reader = csv.DictReader(file)
+        with open(write_path, 'w') as new_file:
+            writer = csv.DictWriter(new_file, fieldnames=reader.fieldnames)
+            writer.writeheader()
+            for row in reader:
+                #dont want zeros for labels
+                new_value = vocab.index(row['label']) + 1
+                row['label'] = new_value
+                writer.writerow(row)
