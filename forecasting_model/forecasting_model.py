@@ -75,7 +75,7 @@ def input_fn(data_file, num_epochs, shuffle, batch_size):
     dataset = tf.data.TextLineDataset(data_file).skip(1)
 
     if shuffle:
-        dataset = dataset.shuffle(buffer_size=100000000)
+        dataset = dataset.shuffle(buffer_size=44440000)
 
     dataset = dataset.map(parse_csv, num_parallel_calls=12)
     dataset = dataset.repeat(num_epochs)
@@ -87,9 +87,9 @@ def model_fn(features, labels, mode, params):
     input_layer = tf.feature_column.input_layer(features, params['feature_columns'])
 
     #hidden layers
-    hidden1 = tf.layers.dense(inputs=input_layer, units=128, activation=tf.nn.relu)
-    hidden2 = tf.layers.dense(inputs=hidden1, units=256, activation=tf.nn.relu)
-    hidden3 = tf.layers.dense(inputs=hidden2, units=128, activation=tf.nn.relu)
+    hidden1 = tf.layers.dense(inputs=input_layer, units=64, activation=tf.nn.relu)
+    hidden2 = tf.layers.dense(inputs=hidden1, units=96, activation=tf.nn.relu)
+    hidden3 = tf.layers.dense(inputs=hidden2, units=84, activation=tf.nn.relu)
 
     #logits
     logits = tf.layers.dense(inputs=hidden3, units=len(LABEL_VOCAB), activation=None)
@@ -113,26 +113,26 @@ def model_fn(features, labels, mode, params):
     metrics = {'accuracy': accuracy}
     tf.summary.scalar('accuracy', accuracy[1])
 
-    optimizer = tf.train.AdagradOptimizer(learning_rate=0.05)
+    optimizer = tf.train.AdagradOptimizer(learning_rate=0.0075)
     train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
 
     return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
 
 def main(argv):
     # Clean up the model directory if present
-    shutil.rmtree('/home/rayford/code/market/forecasting_model/run2', ignore_errors=True)
+    shutil.rmtree('/home/rayford/code/market/forecasting_model/run5', ignore_errors=True)
 
     feature_columns = build_feature_columns()
 
     def train_input_fn():
-        return input_fn('/home/rayford/code/tensorflow_data/new_training_data.csv', 1, True, 5000)
+        return input_fn('/home/rayford/code/tensorflow_data/new_training_data.csv', 5, True, 5000)
 
     def eval_input_fn():
-        return input_fn('home/rayford/code/tensorflow_data/new_testing_data.csv', 1, False, 5000)
+        return input_fn('/home/rayford/code/tensorflow_data/new_testing_data.csv', 1, False, 5000)
 
     classifier = tf.estimator.Estimator(
         model_fn=model_fn,
-        model_dir='/home/rayford/code/market/forecasting_model/run2',
+        model_dir='/home/rayford/code/market/forecasting_model/run5',
         params={
             'feature_columns': feature_columns,
         })
@@ -143,7 +143,10 @@ def main(argv):
     #evaluate the model
     eval_result = classifier.evaluate(input_fn=eval_input_fn)
 
-    print('\nTest Set Accuracy: {accuracy:0.3f}\n'.format(**eval_result))
+    print('-' * 60)
+    for key in sorted(eval_result):
+        print('%s: %s' % (key, eval_result[key]))
+        #print('\nTest Set Accuracy: {accuracy:0.3f}\n'.format(**eval_result))
 
 
 if __name__ == '__main__':
